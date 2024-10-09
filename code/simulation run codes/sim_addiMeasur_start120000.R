@@ -1,7 +1,7 @@
 library(tidyverse)
 library(doParallel)
 library(foreach)
-PathOut<-"HerSim/res/"
+PathOut<-"res/"
 t1 <- Sys.time()
 print(t1)
 
@@ -26,7 +26,8 @@ unit = 0.001
 
 catch_tot = 120000/unit # g
 
-p_s <- c(0.05, 0.1, 0.9, 0.95)
+#p_s <- c(0.05, 0.1, 0.9, 0.95)
+p_s <- c(0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95)
 #   jotta 10% poikkeamaa sovelleteaan, lajia tulee olla saaliina vähintään
 #   100kg
 #   p_s ylä ja alaraja lasketaan tämän mukaisesti, olottaen pienimmän 
@@ -129,7 +130,7 @@ p_est <- function(data, unit, wHer, wSprat, target){
   target_ely = 10/unit
   if(sum(data_w)<(100000/unit) & sum(data_w) >(20000/unit)) target_ely = 20/unit
   if(sum(data_w)>(100000/unit)) target_ely = 40/unit
-  #   100kg lis�mittaus
+  #   100kg lis?mittaus
   target_ely = target_ely + 100/unit
   print(target_ely)
   
@@ -241,25 +242,63 @@ sim_tr <- function(n_sim, catch, unit, wHer, wSprat, target){
 
 #   rekisteröidään clusteri
 
-cluster <- makeCluster(6)
+# cluster <- makeCluster(6)
+# registerDoParallel(cluster)
+# 
+# #   läpikäytävät indeksit
+# ind <- 1:6
+# 
+# res_list <- list()
+# #   käynnistetään
+# #res_list <- foreach(i = 1:5, .export=ls(.GlobalEnv), .packages = "tidyverse") %dopar%{
+# res_list <- foreach(i = ind, .packages = "tidyverse") %dopar%{
+#   res_temp = list()
+#   catch_i <- Wrbern(catch_tot, ps[i], wHer, wSprat)
+#   
+#   res_i <- sim_tr(nsim, catch_i, unit, wHer, wSprat, 7500)
+#     
+#   run_name_i <- paste("catch:", catch_tot*unit, "kg", "_pHer:", round(ps[i]*100, 5), "%", sep = "")
+#   
+#   res_temp[[run_name_i]] <- res_i
+#   res_list[[i]] <- res_temp
+#   
+# }
+# 
+# stopCluster(cl = cluster)
+# 
+# results <- list()
+# for(i in 1:length(res_list)){
+#   l1 <- res_list[[i]][1]
+#   
+#   results[names(l1)] <- l1
+# 
+# }
+
+cluster <- makeCluster(5)
 registerDoParallel(cluster)
 
 #   läpikäytävät indeksit
-ind <- 1:6
+ind <- c(1,3,5,7,9)
 
 res_list <- list()
 #   käynnistetään
 #res_list <- foreach(i = 1:5, .export=ls(.GlobalEnv), .packages = "tidyverse") %dopar%{
 res_list <- foreach(i = ind, .packages = "tidyverse") %dopar%{
   res_temp = list()
+  j = i+1
   catch_i <- Wrbern(catch_tot, ps[i], wHer, wSprat)
+  catch_j <- Wrbern(catch_tot, ps[j], wHer, wSprat)
   
   res_i <- sim_tr(nsim, catch_i, unit, wHer, wSprat, 7500)
-    
+  res_j <- sim_tr(nsim, catch_j, unit, wHer, wSprat, 7500)
+  
   run_name_i <- paste("catch:", catch_tot*unit, "kg", "_pHer:", round(ps[i]*100, 5), "%", sep = "")
+  run_name_j <- paste("catch:", catch_tot*unit, "kg", "_pHer:", round(ps[j]*100, 5), "%", sep = "")
   
   res_temp[[run_name_i]] <- res_i
+  res_temp[[run_name_j]] <- res_j
   res_list[[i]] <- res_temp
+  #res_list[j] <- res_j
   
 }
 
@@ -268,12 +307,13 @@ stopCluster(cl = cluster)
 results <- list()
 for(i in 1:length(res_list)){
   l1 <- res_list[[i]][1]
+  l2 <- res_list[[i]][2]
   
   results[names(l1)] <- l1
-
+  results[names(l2)] <- l2
 }
 
 
 
-saveRDS(results, paste(PathOut,"res_addiMeasur_", catch_tot*unit, "kg.rds", sep = ""))
+saveRDS(results, paste(PathOut,"res_addiMeasur_moreP_", catch_tot*unit, "kg.rds", sep = ""))
 print(time_length(Sys.time()-t1, unit = "hours"))
